@@ -52,6 +52,12 @@ typedef struct {
     double orientation;
 } PoseErrors;
 
+typedef struct {
+    double prop;   // proportional term
+    double integ;  // integral term
+    double deriv;  // derivative term
+} PIDCoeff;
+
 void follow_line(const WbDeviceTag ground_sensors[2], const Motors motors,
                  State *const state, int *const counter, const int counter_max);
 
@@ -61,7 +67,11 @@ RobotSpeeds get_robot_speeds(const WheelSpeed speed, const WheelProps props);
 RobotPose get_robot_pose(const RobotSpeeds speeds, const RobotPose old_pose,
                          const double deltatime);
 
-PoseErrors calc_pose_errs(const RobotPose pose1, const RobotPose pose2);
+PoseErrors calc_pose_errs(const RobotPose actual_pose,
+                          const RobotPose desired_pose);
+double pid_controller(const double err, double *const err_prev,
+                      double *const err_accumulated, const double deltatime,
+                      const PIDCoeff k);
 
 int main(int argc, char **argv) {
     wb_robot_init();
@@ -217,7 +227,35 @@ RobotPose get_robot_pose(const RobotSpeeds speeds, const RobotPose old_pose,
     return pose;
 }
 
-PoseErrors calc_pose_errs(const RobotPose pose1, const RobotPose pose2) {
+// desired_pose.phi is calculated in within this function so
+// you don't have to pass it
+PoseErrors calc_pose_errs(const RobotPose actual_pose,
+                          const RobotPose desired_pose) {
     PoseErrors err = {};
+
+    const double x_err = desired_pose.x - actual_pose.x;
+    const double y_err = desired_pose.y - actual_pose.y;
+    err.position = sqrt(x_err * x_err + y_err * y_err);
+
+    const double d_phi = atan2(y_err, x_err);
+    const double phi_err = d_phi - actual_pose.phi;
+    // normalized to [-pi, pi] rad
+    err.orientation = atan2(sin(phi_err), cos(phi_err));
+
     return err;
+}
+
+double pid_controller(const double err, double *const err_prev,
+                      double *const err_accumulated, const double deltatime,
+                      const PIDCoeff k) {
+    PIDCoeff output = {};
+
+    output.prop = k.prop * err;
+    output.integ = (k.integ * err * deltatime) + (*err_accumulated);
+    output.deriv = k.deriv * (err - (*err_prev)) / deltatime;
+
+    *err_prev = err;
+    *err_accumulated = output.integ;
+
+    return output.prop + output.integ + output.deriv;
 }

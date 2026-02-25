@@ -6,57 +6,10 @@
 #include <webots/position_sensor.h>
 #include <webots/robot.h>
 
+#include "types.h"
+
 #define TIME_STEP 64
 #define MAX_SPEED 6.28
-
-typedef enum { FORWARD, LEFT, RIGHT } State;
-
-typedef struct {
-    double left;
-    double right;
-} WheelSpeed;
-
-typedef struct {
-    double left;
-    double right;
-} WheelPosition;
-
-typedef struct {
-    double radius;    // radius of the wheels
-    double distance;  // distance between the wheels
-} WheelProps;
-
-typedef struct {
-    double linear;
-    double angular;
-} RobotSpeeds;
-
-typedef struct {
-    double x;
-    double y;
-    double phi;
-} RobotPose;
-
-typedef struct {
-    double left;
-    double right;
-} MotorVelocity;
-
-typedef struct {
-    WbDeviceTag left;
-    WbDeviceTag right;
-} Motors;
-
-typedef struct {
-    double position;
-    double orientation;
-} PoseErrors;
-
-typedef struct {
-    double prop;   // proportional term
-    double integ;  // integral term
-    double deriv;  // derivative term
-} PIDCoeff;
 
 void follow_line(const WbDeviceTag ground_sensors[2], const Motors motors,
                  State *const state, int *const counter, const int counter_max);

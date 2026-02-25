@@ -1,5 +1,5 @@
 # lineFollower
-Line Follower robot simulation in Webots
+Line Follower robot simulation in Webots.
 
 ## References
 - [Felippen Martins - Robotics Simulation Labs](https://felipenmartins.github.io/Robotics-Simulation-Labs/)

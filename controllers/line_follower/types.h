@@ -8,10 +8,7 @@ typedef enum { FORWARD, LEFT, RIGHT } State;
 typedef struct {
     double left;
     double right;
-} WheelSpeed;
-
-typedef WheelSpeed WheelPosition;
-typedef WheelSpeed MotorVelocity;
+} WheelSpeed, WheelPosition, MotorVelocity;
 
 typedef struct {
     double radius;    // radius of the wheels
@@ -45,4 +42,4 @@ typedef struct {
     double deriv;  // derivative term
 } PIDCoeff;
 
-#endif // TYPES_H_
+#endif  // TYPES_H_

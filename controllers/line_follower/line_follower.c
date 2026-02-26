@@ -25,6 +25,10 @@ PoseErrors calc_pose_errs(const RobotPose actual_pose,
 double pid_controller(const double err, double *const err_prev,
                       double *const err_accumulated, const double deltatime,
                       const PIDCoeff k);
+void go_to_goal(const RobotPose target_pose, RobotPose *const old_pose,
+                PoseErrors *const err_prev, PoseErrors *const err_accumulated,
+                const WheelSpeed wheel_speed, const WheelProps props,
+                const double deltatime, const PIDCoeff k);
 
 int main(int argc, char **argv) {
     wb_robot_init();
@@ -59,33 +63,28 @@ int main(int argc, char **argv) {
     const int counter_max = 5;
     State state = FORWARD;
     const double deltatime = TIME_STEP / 1000.0;  // in seconds
-
+    const PIDCoeff k = { .prop = 1.8, .integ = 1.2, .deriv = 0.9 };
     const WheelProps props = { .radius = 0.0205, .distance = 0.052 };
 
     WheelPosition old_pos = { .left = wb_position_sensor_get_value(encoders[0]),
                               .right =
                                   wb_position_sensor_get_value(encoders[1]) };
+    printf("%f\n", old_pos.right);
+    const WheelSpeed wheel_speed =
+        get_wheels_speed(old_pos, old_pos, deltatime);
+    const RobotSpeeds speeds = get_robot_speeds(wheel_speed, props);
+    RobotPose old_pose = get_robot_pose(speeds, (RobotPose){}, deltatime);
 
-    RobotPose old_pose = {};
+    PoseErrors err_prev = {};
+    PoseErrors err_accumulated = {};
+
+    const RobotPose target_pose = {};
 
     while (wb_robot_step(TIME_STEP) != -1) {
-        follow_line(ground_sensors, motors, &state, &counter, counter_max);
+        /*follow_line(ground_sensors, motors, &state, &counter, counter_max);*/
 
-        WheelPosition pos = { .left = wb_position_sensor_get_value(encoders[0]),
-                              .right =
-                                  wb_position_sensor_get_value(encoders[1]) };
-        WheelSpeed wheel_speed = get_wheels_speed(pos, old_pos, deltatime);
-        old_pos = pos;
-        printf("speed left = %f    right = %f\n", wheel_speed.left,
-               wheel_speed.right);
-
-        RobotSpeeds speeds = get_robot_speeds(wheel_speed, props);
-        printf("robot speeds linear = %f    angular = %f\n", speeds.linear,
-               speeds.angular);
-
-        RobotPose pose = get_robot_pose(speeds, old_pose, deltatime);
-        printf("robot pose x = %f    y = %f    phi = %f\n", pose.x, pose.y,
-               pose.phi);
+        /*go_to_goal(target_pose, &old_pose, &err_prev, &err_accumulated,*/
+        /*           wheel_speed, props, deltatime, k);*/
     };
 
     wb_robot_cleanup();
@@ -211,4 +210,22 @@ double pid_controller(const double err, double *const err_prev,
     *err_accumulated = output.integ;
 
     return output.prop + output.integ + output.deriv;
+}
+
+void go_to_goal(const RobotPose target_pose, RobotPose *const old_pose,
+                PoseErrors *const err_prev, PoseErrors *const err_accumulated,
+                const WheelSpeed wheel_speed, const WheelProps props,
+                const double deltatime, const PIDCoeff k) {
+    const RobotSpeeds speeds = get_robot_speeds(wheel_speed, props);
+    const RobotPose curr_pose = get_robot_pose(speeds, *old_pose, deltatime);
+    const PoseErrors err = calc_pose_errs(curr_pose, target_pose);
+
+    const double position =
+        pid_controller(err.position, &err_prev->position,
+                       &err_accumulated->position, deltatime, k);
+    const double orientation =
+        pid_controller(err.orientation, &err_prev->orientation,
+                       &err_accumulated->orientation, deltatime, k);
+
+    printf("pid position = %.3f  orientation = %.3f\n", position, orientation);
 }

@@ -55,7 +55,7 @@ int main(void) {
         .right = wb_robot_get_device("gs2"),
     };
     wb_distance_sensor_enable(ground_sensors.left, TIME_STEP);
-    wb_distance_sensor_enable(ground_sensors.left, TIME_STEP);
+    wb_distance_sensor_enable(ground_sensors.right, TIME_STEP);
 
     State state = FORWARD;
     int counter = 0;

@@ -114,7 +114,7 @@ BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeColon
 BreakFunctionDefinitionParameters: false
 BreakInheritanceList: BeforeColon
-BreakStringLiterals: true
+BreakStringLiterals: false
 BreakTemplateDeclarations: Yes
 ColumnLimit:     80
 CommentPragmas:  '^ IWYU pragma:'
@@ -237,7 +237,7 @@ RawStringFormats:
     CanonicalDelimiter: pb
     BasedOnStyle:    google
 ReferenceAlignment: Pointer
-ReflowComments:  true
+ReflowComments:  false
 RemoveBracesLLVM: false
 RemoveParentheses: Leave
 RemoveSemicolon: false

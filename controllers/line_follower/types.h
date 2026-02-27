@@ -8,12 +8,12 @@ typedef enum { FORWARD, LEFT, RIGHT } State;
 typedef struct {
     WbDeviceTag left;
     WbDeviceTag right;
-} Motors, WheelSensors, GroundSensors;
+} WheelSensors;
 
 typedef struct {
     double left;
     double right;
-} WheelsSpeed, WheelsPosSensor, MotorVelocity;
+} WheelSensorVals;
 
 typedef struct {
     double radius;    // radius of the wheels

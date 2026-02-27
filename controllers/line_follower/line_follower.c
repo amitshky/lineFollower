@@ -11,11 +11,11 @@
 #define TIME_STEP 64
 #define MAX_SPEED 6.28
 
-void follow_line(const WbDeviceTag ground_sensors[2], const Motors motors,
+void follow_line(const GroundSensors ground_sensors, const Motors motors,
                  State *const state, int *const counter, const int counter_max);
 
-WheelsSpeed get_wheels_speed(const WheelsPosSensor ps,
-                             const WheelsPosSensor old_ps,
+WheelsSpeed get_wheels_speed(const WheelsPosSensor encoder_vals,
+                             const WheelsPosSensor old_encoder_vals,
                              const double deltatime);
 RobotSpeed get_robot_speeds(const WheelsSpeed speed, const WheelProps props);
 RobotPose get_robot_pose(const RobotSpeed speeds, const RobotPose old_pose,
@@ -34,53 +34,54 @@ void go_to_goal(const RobotPose target_pose, const RobotPose curr_pose,
 int main(void) {
     wb_robot_init();
 
-    const Motors motors = { .left = wb_robot_get_device("left wheel motor"),
-                            .right = wb_robot_get_device("right wheel motor") };
+    const Motors motors = {
+        .left = wb_robot_get_device("left wheel motor"),
+        .right = wb_robot_get_device("right wheel motor"),
+    };
     wb_motor_set_position(motors.left, INFINITY);
     wb_motor_set_position(motors.right, INFINITY);
     wb_motor_set_velocity(motors.left, 0.0);
     wb_motor_set_velocity(motors.right, 0.0);
 
-    WbDeviceTag encoders[2] = {};
-    const char *const encoder_names[2] = {
-        "left wheel sensor",
-        "right wheel sensor",
+    const WheelSensors encoders = {
+        .left = wb_robot_get_device("left wheel sensor"),
+        .right = wb_robot_get_device("right wheel sensor"),
     };
+    wb_position_sensor_enable(encoders.left, TIME_STEP);
+    wb_position_sensor_enable(encoders.right, TIME_STEP);
 
-    for (int i = 0; i < 2; ++i) {
-        encoders[i] = wb_robot_get_device(encoder_names[i]);
-        wb_position_sensor_enable(encoders[i], TIME_STEP);
-    }
+    const GroundSensors ground_sensors = {
+        .left = wb_robot_get_device("gs0"),
+        .right = wb_robot_get_device("gs2"),
+    };
+    wb_distance_sensor_enable(ground_sensors.left, TIME_STEP);
+    wb_distance_sensor_enable(ground_sensors.left, TIME_STEP);
 
-    WbDeviceTag ground_sensors[2] = {};
-    const char *const gs_names[2] = { "gs0", "gs2" };
+    State state = FORWARD;
+    int counter = 0;
+    const int counter_max = 5;
 
-    for (int i = 0; i < 2; ++i) {
-        ground_sensors[i] = wb_robot_get_device(gs_names[i]);
-        wb_distance_sensor_enable(ground_sensors[i], TIME_STEP);
-    }
-
-    /*State state = FORWARD;*/
-    /*int counter = 0;*/
-    /*const int counter_max = 5;*/
     const double deltatime = TIME_STEP / 1000.0;  // in seconds
     const PIDCoeff k = { .prop = 1.8, .integ = 1.2, .deriv = 0.9 };
     const WheelProps props = { .radius = 0.0205, .distance = 0.052 };
 
-    WheelsPosSensor old_ps = {};
+    WheelsPosSensor old_encoder_vals = {};
     RobotPose old_pose = {};
     RobotPose err_prev = {};
     RobotPose err_accumulated = {};
     const RobotPose target_pose = { 1.0, 1.0, 0.0 };
 
     while (wb_robot_step(TIME_STEP) != -1) {
-        /*follow_line(ground_sensors, motors, &state, &counter, counter_max);*/
+        follow_line(ground_sensors, motors, &state, &counter, counter_max);
 
-        const WheelsPosSensor ps = {
-            .left = wb_position_sensor_get_value(encoders[0]),
-            .right = wb_position_sensor_get_value(encoders[1])
+        const WheelsPosSensor encoder_vals = {
+            .left = wb_position_sensor_get_value(encoders.left),
+            .right = wb_position_sensor_get_value(encoders.right),
         };
-        const WheelsSpeed wheel_speed = get_wheels_speed(ps, old_ps, deltatime);
+        printf("encoder_vals left = %f right = %f\n", encoder_vals.left,
+               encoder_vals.right);
+        const WheelsSpeed wheel_speed =
+            get_wheels_speed(encoder_vals, old_encoder_vals, deltatime);
         const RobotSpeed speeds = get_robot_speeds(wheel_speed, props);
         const RobotPose curr_pose = get_robot_pose(speeds, old_pose, deltatime);
 
@@ -93,13 +94,15 @@ int main(void) {
     return 0;
 }
 
-void follow_line(const WbDeviceTag ground_sensors[2], const Motors motors,
+void follow_line(const GroundSensors ground_sensors, const Motors motors,
                  State *const state, int *const counter,
                  const int counter_max) {
     MotorVelocity vel = {};
 
-    const double right_sensor = wb_distance_sensor_get_value(ground_sensors[0]);
-    const double left_sensor = wb_distance_sensor_get_value(ground_sensors[1]);
+    const double right_sensor =
+        wb_distance_sensor_get_value(ground_sensors.left);
+    const double left_sensor =
+        wb_distance_sensor_get_value(ground_sensors.right);
 
     const bool line_right = right_sensor > 600.0;
     const bool line_left = left_sensor > 600.0;
@@ -141,20 +144,22 @@ void follow_line(const WbDeviceTag ground_sensors[2], const Motors motors,
     wb_motor_set_velocity(motors.right, vel.right);
 }
 
-WheelsSpeed get_wheels_speed(const WheelsPosSensor ps,
-                             const WheelsPosSensor old_ps,
+WheelsSpeed get_wheels_speed(const WheelsPosSensor encoder_vals,
+                             const WheelsPosSensor old_encoder_vals,
                              const double deltatime) {
-    const double distance_left = ps.left - old_ps.left;
-    const double distance_right = ps.right - old_ps.right;
+    const double distance_left = encoder_vals.left - old_encoder_vals.left;
+    const double distance_right = encoder_vals.right - old_encoder_vals.right;
 
-    return (WheelsSpeed){ .left = distance_left / deltatime,
-                          .right = distance_right / deltatime };
+    return (WheelsSpeed){
+        .left = distance_left / deltatime,
+        .right = distance_right / deltatime,
+    };
 }
 
 RobotSpeed get_robot_speeds(const WheelsSpeed speed, const WheelProps props) {
     return (RobotSpeed){
         .linear = props.radius / 2.0 * (speed.right + speed.left),
-        .angular = props.radius / props.distance * (speed.right - speed.left)
+        .angular = props.radius / props.distance * (speed.right - speed.left),
     };
 }
 
@@ -226,7 +231,7 @@ void go_to_goal(const RobotPose target_pose, const RobotPose curr_pose,
         .y = pid_controller(err.y, &err_prev->y, &err_accumulated->y, deltatime,
                             k),
         .phi = pid_controller(err.phi, &err_prev->phi, &err_accumulated->phi,
-                              deltatime, k)
+                              deltatime, k),
     };
 
     *old_pose = curr_pose;

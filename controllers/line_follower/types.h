@@ -8,7 +8,7 @@ typedef enum { FORWARD, LEFT, RIGHT } State;
 typedef struct {
     WbDeviceTag left;
     WbDeviceTag right;
-} Motors;
+} Motors, WheelSensors, GroundSensors;
 
 typedef struct {
     double left;

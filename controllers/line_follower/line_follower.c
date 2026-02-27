@@ -27,6 +27,9 @@ RobotPose calc_pose_errs(const RobotPose actual_pose,
 double pid_controller(const double err, double *const err_prev,
                       double *const err_accumulated, const double deltatime,
                       const PIDCoeff k);
+RobotPose pid_controller_pose(const RobotPose err, RobotPose *const err_prev,
+                              RobotPose *const err_accumulated,
+                              const double deltatime, const PIDCoeff k);
 void go_to_goal(const RobotPose target_pose, const RobotPose curr_pose,
                 RobotPose *const old_pose, RobotPose *const err_prev,
                 RobotPose *const err_accumulated, const double deltatime,
@@ -58,9 +61,9 @@ int main(void) {
     wb_distance_sensor_enable(ground_sensors.left, TIME_STEP);
     wb_distance_sensor_enable(ground_sensors.right, TIME_STEP);
 
-    State state = FORWARD;
-    int counter = 0;
-    const int counter_max = 5;
+    // State state = FORWARD;
+    // int counter = 0;
+    // const int counter_max = 5;
 
     const double deltatime = TIME_STEP / 1000.0;  // in seconds
     const PIDCoeff k = { .prop = 1.8, .integ = 1.2, .deriv = 0.9 };
@@ -73,7 +76,7 @@ int main(void) {
     const RobotPose target_pose = { 1.0, 1.0, 0.0 };
 
     while (wb_robot_step(TIME_STEP) != -1) {
-        follow_line(ground_sensors, motors, &state, &counter, counter_max);
+        // follow_line(ground_sensors, motors, &state, &counter, counter_max);
 
         const WheelSensorVals encoder_vals = {
             .left = wb_position_sensor_get_value(encoders.left),
@@ -189,8 +192,6 @@ RobotPose get_robot_pose(const RobotSpeed speed, const RobotPose old_pose,
     return pose;
 }
 
-// desired_pose.phi is calculated in within this function so
-// you don't have to pass it
 RobotPose calc_pose_errs(const RobotPose actual_pose,
                          const RobotPose desired_pose) {
     RobotPose err = {};
@@ -198,8 +199,8 @@ RobotPose calc_pose_errs(const RobotPose actual_pose,
     err.x = desired_pose.x - actual_pose.x;
     err.y = desired_pose.y - actual_pose.y;
 
-    const double d_phi = atan2(err.y, err.x);
-    const double phi_err = d_phi - actual_pose.phi;
+    const double desired_phi = atan2(err.y, err.x);
+    const double phi_err = desired_phi - actual_pose.phi;
     // normalized to [-pi, pi] rad
     err.phi = atan2(sin(phi_err), cos(phi_err));
 
@@ -221,13 +222,10 @@ double pid_controller(const double err, double *const err_prev,
     return output.prop + output.integ + output.deriv;
 }
 
-void go_to_goal(const RobotPose target_pose, const RobotPose curr_pose,
-                RobotPose *const old_pose, RobotPose *const err_prev,
-                RobotPose *const err_accumulated, const double deltatime,
-                const PIDCoeff k) {
-    const RobotPose err = calc_pose_errs(curr_pose, target_pose);
-
-    const RobotPose next_pose = {
+RobotPose pid_controller_pose(const RobotPose err, RobotPose *const err_prev,
+                              RobotPose *const err_accumulated,
+                              const double deltatime, const PIDCoeff k) {
+    return (RobotPose){
         .x = pid_controller(err.x, &err_prev->x, &err_accumulated->x, deltatime,
                             k),
         .y = pid_controller(err.y, &err_prev->y, &err_accumulated->y, deltatime,
@@ -235,6 +233,15 @@ void go_to_goal(const RobotPose target_pose, const RobotPose curr_pose,
         .phi = pid_controller(err.phi, &err_prev->phi, &err_accumulated->phi,
                               deltatime, k),
     };
+}
+
+void go_to_goal(const RobotPose target_pose, const RobotPose curr_pose,
+                RobotPose *const old_pose, RobotPose *const err_prev,
+                RobotPose *const err_accumulated, const double deltatime,
+                const PIDCoeff k) {
+    const RobotPose err = calc_pose_errs(curr_pose, target_pose);
+    const RobotPose next_pose =
+        pid_controller_pose(err, err_prev, err_accumulated, deltatime, k);
 
     *old_pose = curr_pose;
 

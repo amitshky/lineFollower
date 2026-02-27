@@ -6,9 +6,14 @@
 typedef enum { FORWARD, LEFT, RIGHT } State;
 
 typedef struct {
+    WbDeviceTag left;
+    WbDeviceTag right;
+} Motors;
+
+typedef struct {
     double left;
     double right;
-} WheelSpeed, WheelPosition, MotorVelocity;
+} WheelsSpeed, WheelsPosSensor, MotorVelocity;
 
 typedef struct {
     double radius;    // radius of the wheels
@@ -18,23 +23,15 @@ typedef struct {
 typedef struct {
     double linear;
     double angular;
-} RobotSpeeds;
+} RobotSpeed;
 
 typedef struct {
+    // position
     double x;
     double y;
+    // orientation
     double phi;
 } RobotPose;
-
-typedef struct {
-    WbDeviceTag left;
-    WbDeviceTag right;
-} Motors;
-
-typedef struct {
-    double position;
-    double orientation;
-} PoseErrors;
 
 typedef struct {
     double prop;   // proportional term

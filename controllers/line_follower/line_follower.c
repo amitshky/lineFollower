@@ -14,23 +14,24 @@
 void follow_line(const WbDeviceTag ground_sensors[2], const Motors motors,
                  State *const state, int *const counter, const int counter_max);
 
-WheelSpeed get_wheels_speed(const WheelPosition pos,
-                            const WheelPosition old_pos, int deltatime);
-RobotSpeeds get_robot_speeds(const WheelSpeed speed, const WheelProps props);
-RobotPose get_robot_pose(const RobotSpeeds speeds, const RobotPose old_pose,
+WheelsSpeed get_wheels_speed(const WheelsPosSensor ps,
+                             const WheelsPosSensor old_ps,
+                             const double deltatime);
+RobotSpeed get_robot_speeds(const WheelsSpeed speed, const WheelProps props);
+RobotPose get_robot_pose(const RobotSpeed speeds, const RobotPose old_pose,
                          const double deltatime);
 
-PoseErrors calc_pose_errs(const RobotPose actual_pose,
-                          const RobotPose desired_pose);
+RobotPose calc_pose_errs(const RobotPose actual_pose,
+                         const RobotPose desired_pose);
 double pid_controller(const double err, double *const err_prev,
                       double *const err_accumulated, const double deltatime,
                       const PIDCoeff k);
-void go_to_goal(const RobotPose target_pose, RobotPose *const old_pose,
-                PoseErrors *const err_prev, PoseErrors *const err_accumulated,
-                const WheelSpeed wheel_speed, const WheelProps props,
-                const double deltatime, const PIDCoeff k);
+void go_to_goal(const RobotPose target_pose, const RobotPose curr_pose,
+                RobotPose *const old_pose, RobotPose *const err_prev,
+                RobotPose *const err_accumulated, const double deltatime,
+                const PIDCoeff k);
 
-int main(int argc, char **argv) {
+int main(void) {
     wb_robot_init();
 
     const Motors motors = { .left = wb_robot_get_device("left wheel motor"),
@@ -41,7 +42,7 @@ int main(int argc, char **argv) {
     wb_motor_set_velocity(motors.right, 0.0);
 
     WbDeviceTag encoders[2] = {};
-    char *encoder_names[2] = {
+    const char *const encoder_names[2] = {
         "left wheel sensor",
         "right wheel sensor",
     };
@@ -52,39 +53,39 @@ int main(int argc, char **argv) {
     }
 
     WbDeviceTag ground_sensors[2] = {};
-    char *gs_names[2] = { "gs0", "gs2" };
+    const char *const gs_names[2] = { "gs0", "gs2" };
 
     for (int i = 0; i < 2; ++i) {
         ground_sensors[i] = wb_robot_get_device(gs_names[i]);
         wb_distance_sensor_enable(ground_sensors[i], TIME_STEP);
     }
 
-    int counter = 0;
-    const int counter_max = 5;
-    State state = FORWARD;
+    /*State state = FORWARD;*/
+    /*int counter = 0;*/
+    /*const int counter_max = 5;*/
     const double deltatime = TIME_STEP / 1000.0;  // in seconds
     const PIDCoeff k = { .prop = 1.8, .integ = 1.2, .deriv = 0.9 };
     const WheelProps props = { .radius = 0.0205, .distance = 0.052 };
 
-    WheelPosition old_pos = { .left = wb_position_sensor_get_value(encoders[0]),
-                              .right =
-                                  wb_position_sensor_get_value(encoders[1]) };
-    printf("%f\n", old_pos.right);
-    const WheelSpeed wheel_speed =
-        get_wheels_speed(old_pos, old_pos, deltatime);
-    const RobotSpeeds speeds = get_robot_speeds(wheel_speed, props);
-    RobotPose old_pose = get_robot_pose(speeds, (RobotPose){}, deltatime);
-
-    PoseErrors err_prev = {};
-    PoseErrors err_accumulated = {};
-
-    const RobotPose target_pose = {};
+    WheelsPosSensor old_ps = {};
+    RobotPose old_pose = {};
+    RobotPose err_prev = {};
+    RobotPose err_accumulated = {};
+    const RobotPose target_pose = { 1.0, 1.0, 0.0 };
 
     while (wb_robot_step(TIME_STEP) != -1) {
         /*follow_line(ground_sensors, motors, &state, &counter, counter_max);*/
 
-        /*go_to_goal(target_pose, &old_pose, &err_prev, &err_accumulated,*/
-        /*           wheel_speed, props, deltatime, k);*/
+        const WheelsPosSensor ps = {
+            .left = wb_position_sensor_get_value(encoders[0]),
+            .right = wb_position_sensor_get_value(encoders[1])
+        };
+        const WheelsSpeed wheel_speed = get_wheels_speed(ps, old_ps, deltatime);
+        const RobotSpeed speeds = get_robot_speeds(wheel_speed, props);
+        const RobotPose curr_pose = get_robot_pose(speeds, old_pose, deltatime);
+
+        go_to_goal(target_pose, curr_pose, &old_pose, &err_prev,
+                   &err_accumulated, deltatime, k);
     };
 
     wb_robot_cleanup();
@@ -140,28 +141,29 @@ void follow_line(const WbDeviceTag ground_sensors[2], const Motors motors,
     wb_motor_set_velocity(motors.right, vel.right);
 }
 
-WheelSpeed get_wheels_speed(const WheelPosition pos,
-                            const WheelPosition old_pos, int deltatime) {
-    const double distance_left = pos.left - old_pos.left;
-    const double distance_right = pos.left - old_pos.right;
+WheelsSpeed get_wheels_speed(const WheelsPosSensor ps,
+                             const WheelsPosSensor old_ps,
+                             const double deltatime) {
+    const double distance_left = ps.left - old_ps.left;
+    const double distance_right = ps.right - old_ps.right;
 
-    return (WheelSpeed){ .left = distance_left / deltatime,
-                         .right = distance_right / deltatime };
+    return (WheelsSpeed){ .left = distance_left / deltatime,
+                          .right = distance_right / deltatime };
 }
 
-RobotSpeeds get_robot_speeds(const WheelSpeed speed, const WheelProps props) {
-    return (RobotSpeeds){
+RobotSpeed get_robot_speeds(const WheelsSpeed speed, const WheelProps props) {
+    return (RobotSpeed){
         .linear = props.radius / 2.0 * (speed.right + speed.left),
         .angular = props.radius / props.distance * (speed.right - speed.left)
     };
 }
 
-RobotPose get_robot_pose(const RobotSpeeds speeds, const RobotPose old_pose,
+RobotPose get_robot_pose(const RobotSpeed speed, const RobotPose old_pose,
                          const double deltatime) {
     RobotPose pose = {};
     RobotPose delta = {};
 
-    delta.phi = speeds.angular * deltatime;
+    delta.phi = speed.angular * deltatime;
     pose.phi = delta.phi + old_pose.phi;
 
     // Normalize to [-pi, pi]
@@ -171,8 +173,9 @@ RobotPose get_robot_pose(const RobotSpeeds speeds, const RobotPose old_pose,
         pose.phi += 2 * M_PI;
     }
 
-    delta.x = speeds.linear * cos(pose.phi) * deltatime;
-    delta.y = speeds.linear * sin(pose.phi) * deltatime;
+    delta.x = speed.linear * cos(pose.phi) * deltatime;
+    delta.y = speed.linear * sin(pose.phi) * deltatime;
+
     pose.x = old_pose.x + delta.x;
     pose.y = old_pose.y + delta.y;
 
@@ -181,18 +184,17 @@ RobotPose get_robot_pose(const RobotSpeeds speeds, const RobotPose old_pose,
 
 // desired_pose.phi is calculated in within this function so
 // you don't have to pass it
-PoseErrors calc_pose_errs(const RobotPose actual_pose,
-                          const RobotPose desired_pose) {
-    PoseErrors err = {};
+RobotPose calc_pose_errs(const RobotPose actual_pose,
+                         const RobotPose desired_pose) {
+    RobotPose err = {};
 
-    const double x_err = desired_pose.x - actual_pose.x;
-    const double y_err = desired_pose.y - actual_pose.y;
-    err.position = sqrt(x_err * x_err + y_err * y_err);
+    err.x = desired_pose.x - actual_pose.x;
+    err.y = desired_pose.y - actual_pose.y;
 
-    const double d_phi = atan2(y_err, x_err);
+    const double d_phi = atan2(err.y, err.x);
     const double phi_err = d_phi - actual_pose.phi;
     // normalized to [-pi, pi] rad
-    err.orientation = atan2(sin(phi_err), cos(phi_err));
+    err.phi = atan2(sin(phi_err), cos(phi_err));
 
     return err;
 }
@@ -212,20 +214,23 @@ double pid_controller(const double err, double *const err_prev,
     return output.prop + output.integ + output.deriv;
 }
 
-void go_to_goal(const RobotPose target_pose, RobotPose *const old_pose,
-                PoseErrors *const err_prev, PoseErrors *const err_accumulated,
-                const WheelSpeed wheel_speed, const WheelProps props,
-                const double deltatime, const PIDCoeff k) {
-    const RobotSpeeds speeds = get_robot_speeds(wheel_speed, props);
-    const RobotPose curr_pose = get_robot_pose(speeds, *old_pose, deltatime);
-    const PoseErrors err = calc_pose_errs(curr_pose, target_pose);
+void go_to_goal(const RobotPose target_pose, const RobotPose curr_pose,
+                RobotPose *const old_pose, RobotPose *const err_prev,
+                RobotPose *const err_accumulated, const double deltatime,
+                const PIDCoeff k) {
+    const RobotPose err = calc_pose_errs(curr_pose, target_pose);
 
-    const double position =
-        pid_controller(err.position, &err_prev->position,
-                       &err_accumulated->position, deltatime, k);
-    const double orientation =
-        pid_controller(err.orientation, &err_prev->orientation,
-                       &err_accumulated->orientation, deltatime, k);
+    const RobotPose next_pose = {
+        .x = pid_controller(err.x, &err_prev->x, &err_accumulated->x, deltatime,
+                            k),
+        .y = pid_controller(err.y, &err_prev->y, &err_accumulated->y, deltatime,
+                            k),
+        .phi = pid_controller(err.phi, &err_prev->phi, &err_accumulated->phi,
+                              deltatime, k)
+    };
 
-    printf("pid position = %.3f  orientation = %.3f\n", position, orientation);
+    *old_pose = curr_pose;
+
+    printf("pid x = %.3f  y = %.3f  phi = %.3f\n", next_pose.x, next_pose.y,
+           next_pose.phi);
 }

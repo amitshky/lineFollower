@@ -44,3 +44,4 @@
 build/
 compile_commands.json
 session.vim
+./controllers/line_follower/line_follower

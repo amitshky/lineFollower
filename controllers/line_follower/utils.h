@@ -11,17 +11,14 @@ RobotSpeed get_robot_speeds(const WheelSensorVals speed,
 RobotPose get_robot_pose(const RobotSpeed speeds, const RobotPose old_pose,
                          const double deltatime);
 
-RobotPose calc_pose_errs(const RobotPose actual_pose,
-                         const RobotPose desired_pose);
-double pid_controller(const double err, double *const err_prev,
-                      double *const err_accumulated, const double deltatime,
-                      const PIDCoeff k);
-RobotPose pid_controller_pose(const RobotPose err, RobotPose *const err_prev,
-                              RobotPose *const err_accumulated,
+PoseError calc_pose_errors(const RobotPose actual_pose,
+                           const RobotPose desired_pose);
+PoseError pid_controller_pose(const PoseError err, PoseError *const err_prev,
+                              PoseError *const err_accumulated,
                               const double deltatime, const PIDCoeff k);
 void go_to_goal(const RobotPose target_pose, const RobotPose curr_pose,
-                RobotPose *const old_pose, RobotPose *const err_prev,
-                RobotPose *const err_accumulated, const double deltatime,
-                const PIDCoeff k);
+                RobotPose *const old_pose, PoseError *const err_prev,
+                PoseError *const err_accumulated, const WheelSensors motors,
+                const double deltatime, const PIDCoeff k);
 
 #endif  // UTILS_H_

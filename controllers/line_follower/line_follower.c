@@ -6,11 +6,9 @@
 #include <webots/position_sensor.h>
 #include <webots/robot.h>
 
+#include "commons.h"
 #include "types.h"
 #include "utils.h"
-
-#define TIME_STEP 64
-#define MAX_SPEED 6.28
 
 void follow_line(const WheelSensors ground_sensors, const WheelSensors motors,
                  State *const state, int *const counter, const int counter_max);
@@ -51,8 +49,8 @@ int main(void) {
 
     WheelSensorVals old_encoder_vals = {};
     RobotPose old_pose = {};
-    RobotPose err_prev = {};
-    RobotPose err_accumulated = {};
+    PoseError err_prev = {};
+    PoseError err_accumulated = {};
     const RobotPose target_pose = { 1.0, 1.0, 0.0 };
 
     while (wb_robot_step(TIME_STEP) != -1) {
@@ -62,15 +60,21 @@ int main(void) {
             .left = wb_position_sensor_get_value(encoders.left),
             .right = wb_position_sensor_get_value(encoders.right),
         };
-        printf("encoder_vals left = %f right = %f\n", encoder_vals.left,
-               encoder_vals.right);
         const WheelSensorVals wheel_speed =
             get_wheels_speed(encoder_vals, old_encoder_vals, deltatime);
         const RobotSpeed speeds = get_robot_speeds(wheel_speed, props);
         const RobotPose curr_pose = get_robot_pose(speeds, old_pose, deltatime);
 
+        printf("encoder_vals left = %f right = %f\n", encoder_vals.left,
+               encoder_vals.right);
+        // printf("wheel speed left = %f right = %f\n", wheel_speed.left, wheel_speed.right);
+        // printf("robot speed linear = %f angular = %f\n", speeds.linear, speeds.angular);
+        // printf("target pose x = %f y = %f phi = %f\n", target_pose.x, target_pose.y, target_pose.phi);
+        printf("robot pose x = %f y = %f phi = %f\n", curr_pose.x, curr_pose.y,
+               curr_pose.phi);
+
         go_to_goal(target_pose, curr_pose, &old_pose, &err_prev,
-                   &err_accumulated, deltatime, k);
+                   &err_accumulated, motors, deltatime, k);
     };
 
     wb_robot_cleanup();

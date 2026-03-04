@@ -34,11 +34,6 @@ typedef struct {
 } RobotPose;
 
 typedef struct {
-    double position;
-    double orientation;
-} PoseError;
-
-typedef struct {
     double prop;   // proportional term
     double integ;  // integral term
     double deriv;  // derivative term

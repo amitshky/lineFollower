@@ -67,7 +67,7 @@
 
 CFLAGS = -Wextra -Wconversion -Werror
 INCLUDE := -I"$(WEBOTS_HOME)/include/controller/c/"
-C_SOURCES = utils.c line_follower.c
+C_SOURCES := $(shell find . -type f -wholename "./*.c")
 # VERBOSE = 1
 
 ### Do not modify: this includes Webots global Makefile.include
@@ -75,3 +75,6 @@ null :=
 space := $(null) $(null)
 WEBOTS_HOME_PATH?=$(subst $(space),\ ,$(strip $(subst \,/,$(WEBOTS_HOME))))
 include $(WEBOTS_HOME_PATH)/resources/Makefile.include
+
+format:
+	find . -type f \( -name "*.c" -o -name "*.h" \) -exec clang-format -i {} +

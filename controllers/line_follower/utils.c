@@ -18,6 +18,7 @@ WheelSensorVals get_wheels_speed(const WheelSensorVals encoder_vals,
 RobotSpeed get_robot_speeds(const WheelSensorVals speed,
                             const WheelProps props) {
     return (RobotSpeed){
+        // linear speed is the average speed of the 2 wheels
         .linear = props.radius / 2.0 * (speed.right + speed.left),
         .angular = props.radius / props.distance * (speed.right - speed.left),
     };
@@ -29,7 +30,7 @@ RobotPose get_robot_pose(const RobotSpeed speed, const RobotPose old_pose,
     RobotPose delta = {};
 
     delta.phi = speed.angular * deltatime;
-    pose.phi = delta.phi + old_pose.phi;
+    pose.phi = old_pose.phi + delta.phi;
 
     // Normalize to [-pi, pi]
     if (pose.phi > M_PI) {
@@ -47,18 +48,16 @@ RobotPose get_robot_pose(const RobotSpeed speed, const RobotPose old_pose,
     return pose;
 }
 
-PoseError calc_pose_errors(const RobotPose actual_pose,
-                           const RobotPose desired_pose) {
-    PoseError err = {};
+RobotPose calc_pose_errors(const RobotPose actual, const RobotPose desired) {
+    RobotPose err = {};
 
-    const double x = desired_pose.x - actual_pose.x;
-    const double y = desired_pose.y - actual_pose.y;
-    err.position = sqrt(x * x + y * y);
+    err.x = desired.x - actual.x;
+    err.y = desired.y - actual.y;
 
-    const double desired_phi = atan2(y, x);
-    const double phi_err = desired_phi - actual_pose.phi;
+    const double desired_phi = atan2(err.y, err.x);
+    const double diff_phi = desired_phi - actual.phi;
     // normalized to [-pi, pi] rad
-    err.orientation = atan2(sin(phi_err), cos(phi_err));
+    err.phi = atan2(sin(diff_phi), cos(diff_phi));
 
     return err;
 }
@@ -78,40 +77,34 @@ double pid_controller(const double err, double *const err_prev,
     return output.prop + output.integ + output.deriv;
 }
 
-PoseError pid_controller_pose(const PoseError err, PoseError *const err_prev,
-                              PoseError *const err_accumulated,
-                              const double deltatime, const PIDCoeff k) {
-    return (PoseError){
-        .position = pid_controller(err.position, &err_prev->position,
-                                   &err_accumulated->position, deltatime, k),
-        .orientation =
-            pid_controller(err.orientation, &err_prev->orientation,
-                           &err_accumulated->orientation, deltatime, k),
+WheelSensorVals wheel_speed_commands(const RobotSpeed desired,
+                                     const WheelProps props) {
+    WheelSensorVals speeds = {
+        .left = (2.0 * desired.linear + props.distance * desired.angular) /
+                (2.0 * props.radius),
+        .right = (2.0 * desired.linear - props.distance * desired.angular) /
+                 (2.0 * props.radius),
     };
+    return speeds;
 }
 
 void go_to_goal(const RobotPose target_pose, const RobotPose curr_pose,
-                RobotPose *const old_pose, PoseError *const err_prev,
-                PoseError *const err_accumulated, const WheelSensors motors,
+                RobotPose *const old_pose, RobotPose *const err_prev,
+                RobotPose *const err_accumulated, const WheelSensors motors,
                 const double deltatime, const PIDCoeff k) {
-    const PoseError err = calc_pose_errors(curr_pose, target_pose);
-    const PoseError next_pose =
-        pid_controller_pose(err, err_prev, err_accumulated, deltatime, k);
+    const RobotPose err = calc_pose_errors(curr_pose, target_pose);
+    const double phi = pid_controller(err.phi, &err_prev->phi,
+                                      &err_accumulated->phi, deltatime, k);
 
     *old_pose = curr_pose;
 
     WheelSensorVals vel = {
-        .left = 5.0 - next_pose.position - next_pose.orientation,
-        .right = 5.0 + next_pose.position + next_pose.orientation,
+        .left = 5.0 - phi,
+        .right = 5.0 + phi,
     };
     vel.left = fmax(fmin(vel.left, MAX_SPEED), MAX_SPEED);
     vel.right = fmax(fmin(vel.right, MAX_SPEED), MAX_SPEED);
 
     wb_motor_set_velocity(motors.left, vel.left);
     wb_motor_set_velocity(motors.right, vel.right);
-
-    printf("err position = %f orientation = %f\n", err.position,
-           err.orientation);
-    printf("next pose position = %.3f  orientation = %.3f\n",
-           next_pose.position, next_pose.orientation);
 }

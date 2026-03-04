@@ -47,11 +47,12 @@ int main(void) {
     const PIDCoeff k = { .prop = 1.8, .integ = 1.2, .deriv = 0.9 };
     const WheelProps props = { .radius = 0.0205, .distance = 0.052 };
 
+    bool start = true;
     WheelSensorVals old_encoder_vals = {};
-    RobotPose old_pose = {};
-    PoseError err_prev = {};
-    PoseError err_accumulated = {};
-    const RobotPose target_pose = { 1.0, 1.0, 0.0 };
+    RobotPose old_pose = { 0, 0.437, 6.28318 };
+    RobotPose err_prev = {};
+    RobotPose err_accumulated = {};
+    const RobotPose target_pose = { 1.0, 1.0, 1.570796327 };
 
     while (wb_robot_step(TIME_STEP) != -1) {
         // follow_line(ground_sensors, motors, &state, &counter, counter_max);
@@ -60,18 +61,24 @@ int main(void) {
             .left = wb_position_sensor_get_value(encoders.left),
             .right = wb_position_sensor_get_value(encoders.right),
         };
+
+        if (start) {
+            old_encoder_vals = encoder_vals;
+            start = false;
+        }
+
         const WheelSensorVals wheel_speed =
             get_wheels_speed(encoder_vals, old_encoder_vals, deltatime);
         const RobotSpeed speeds = get_robot_speeds(wheel_speed, props);
         const RobotPose curr_pose = get_robot_pose(speeds, old_pose, deltatime);
 
-        printf("encoder_vals left = %f right = %f\n", encoder_vals.left,
-               encoder_vals.right);
+        // printf("encoder_vals left = %f right = %f\n", encoder_vals.left,
+        //        encoder_vals.right);
         // printf("wheel speed left = %f right = %f\n", wheel_speed.left, wheel_speed.right);
         // printf("robot speed linear = %f angular = %f\n", speeds.linear, speeds.angular);
         // printf("target pose x = %f y = %f phi = %f\n", target_pose.x, target_pose.y, target_pose.phi);
-        printf("robot pose x = %f y = %f phi = %f\n", curr_pose.x, curr_pose.y,
-               curr_pose.phi);
+        printf("robot pose x = %f m  y = %f m  phi = %f rad\n", curr_pose.x,
+               curr_pose.y, curr_pose.phi);
 
         go_to_goal(target_pose, curr_pose, &old_pose, &err_prev,
                    &err_accumulated, motors, deltatime, k);

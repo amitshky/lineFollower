@@ -100,7 +100,7 @@ int main(void) {
                curr_pose.y, to_degrees(curr_pose.phi));
         printf("robot pose err x = %f m  y = %f m  phi = %f deg\n", err.x,
                err.y, to_degrees(err.phi));
-        printf("pid controller phi = %f\n deg", to_degrees(phi));
+        printf("pid controller phi = %f\n deg\n", to_degrees(phi));
 
         // go_to_goal(target_pose, curr_pose, &old_pose, &err_prev,
         //            &err_accumulated, motors, deltatime, k);

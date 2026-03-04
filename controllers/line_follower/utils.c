@@ -1,10 +1,10 @@
 #include "utils.h"
 
 #include <math.h>
-#include <stdio.h>
 #include <webots/motor.h>
 
-#include "commons.h"
+#include "types.h"
+#include "constants.h"
 
 WheelSensorVals get_wheels_speed(const WheelSensorVals encoder_vals,
                                  const WheelSensorVals old_encoder_vals,
@@ -102,8 +102,8 @@ void go_to_goal(const RobotPose target_pose, const RobotPose curr_pose,
         .left = 5.0 - phi,
         .right = 5.0 + phi,
     };
-    vel.left = fmax(fmin(vel.left, MAX_SPEED), MAX_SPEED);
-    vel.right = fmax(fmin(vel.right, MAX_SPEED), MAX_SPEED);
+    vel.left = fmax(fmin(vel.left, MAX_SPEED), -MAX_SPEED);
+    vel.right = fmax(fmin(vel.right, MAX_SPEED), -MAX_SPEED);
 
     wb_motor_set_velocity(motors.left, vel.left);
     wb_motor_set_velocity(motors.right, vel.right);

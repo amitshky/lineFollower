@@ -6,7 +6,7 @@
 #include <webots/position_sensor.h>
 #include <webots/robot.h>
 
-#include "commons.h"
+#include "constants.h"
 #include "types.h"
 #include "utils.h"
 
@@ -71,17 +71,39 @@ int main(void) {
             get_wheels_speed(encoder_vals, old_encoder_vals, deltatime);
         const RobotSpeed speeds = get_robot_speeds(wheel_speed, props);
         const RobotPose curr_pose = get_robot_pose(speeds, old_pose, deltatime);
+        const RobotPose err = calc_pose_errors(curr_pose, target_pose);
+        const double phi = pid_controller(err.phi, &err_prev.phi,
+                                          &err_accumulated.phi, deltatime, k);
+        old_encoder_vals = encoder_vals;
+        old_pose = curr_pose;
 
-        // printf("encoder_vals left = %f right = %f\n", encoder_vals.left,
-        //        encoder_vals.right);
-        // printf("wheel speed left = %f right = %f\n", wheel_speed.left, wheel_speed.right);
-        // printf("robot speed linear = %f angular = %f\n", speeds.linear, speeds.angular);
-        // printf("target pose x = %f y = %f phi = %f\n", target_pose.x, target_pose.y, target_pose.phi);
-        printf("robot pose x = %f m  y = %f m  phi = %f rad\n", curr_pose.x,
-               curr_pose.y, curr_pose.phi);
+        WheelSensorVals vel = {
+            .left = 5.0 - phi,
+            .right = 5.0 + phi,
+        };
+        vel.left = fmax(fmin(vel.left, MAX_SPEED), -MAX_SPEED);
+        vel.right = fmax(fmin(vel.right, MAX_SPEED), -MAX_SPEED);
 
-        go_to_goal(target_pose, curr_pose, &old_pose, &err_prev,
-                   &err_accumulated, motors, deltatime, k);
+        wb_motor_set_velocity(motors.left, vel.left);
+        wb_motor_set_velocity(motors.right, vel.right);
+
+        printf("===============================================\n");
+        printf("encoder_vals left = %f right = %f\n", encoder_vals.left,
+               encoder_vals.right);
+        printf("wheel speed left = %f right = %f\n", wheel_speed.left,
+               wheel_speed.right);
+        printf("robot speed linear = %f angular = %f\n", speeds.linear,
+               speeds.angular);
+        printf("target pose x = %f m  y = %f m  phi = %f deg\n", target_pose.x,
+               target_pose.y, to_degrees(target_pose.phi));
+        printf("robot pose x = %f m  y = %f m  phi = %f deg\n", curr_pose.x,
+               curr_pose.y, to_degrees(curr_pose.phi));
+        printf("robot pose err x = %f m  y = %f m  phi = %f deg\n", err.x,
+               err.y, to_degrees(err.phi));
+        printf("pid controller phi = %f\n deg", to_degrees(phi));
+
+        // go_to_goal(target_pose, curr_pose, &old_pose, &err_prev,
+        //            &err_accumulated, motors, deltatime, k);
     };
 
     wb_robot_cleanup();
